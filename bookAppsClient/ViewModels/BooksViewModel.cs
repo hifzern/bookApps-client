@@ -9,6 +9,7 @@ using System.Collections.ObjectModel;
 using bookAppsClient.Models;
 using bookAppsClient.Utils;
 using System.Security.Policy;
+using System.Net.Http.Json;
 
 
 namespace bookAppsClient.ViewModels
@@ -52,6 +53,51 @@ namespace bookAppsClient.ViewModels
             UpdateCommand = new RelayCommand(async _ => await UpdateAsync(), _ => !IsBusy && Selected != null);
             DeleteCommand = new RelayCommand(async _ => await DeleteAsync(), _ => !IsBusy && Selected != null);
             NewCommand = new RelayCommand(_ => { Selected = null; Title = ""; Author = ""; Year = DateTime.Now.Year; });
+
+        }
+
+        public async Task LoadAsync()
+        {
+            try
+            {
+                IsBusy = true; Status = "Loading...";
+                var data = await _http.GetFromJsonAsync<Book[]>("books");
+                Books.Clear();
+                if (data != null) foreach (var b in data) Books.Add(b);
+                Status = $"Loaded {Books.Count} books";
+            } catch (Exception ex)
+            {
+                Status = "Error : " + ex.Message;
+            } finally
+            {
+                IsBusy = false;
+                RaiseAll();
+            }
+        }
+
+        public async Task AddAsync()
+        {
+            try
+            {
+                IsBusy = true;
+                Status = "Adding...";
+                var newBook = new Book { Title = Title, Author = Author, Year = Year };
+                var resp = await _http.PostAsJsonAsync("books", newBook);
+                resp.EnsureSuccessStatusCode();
+                var created = await resp.Content.ReadFromJsonAsync<Book>();
+                if (!created) Books.Add(created);
+                Status = "Added.";
+            } catch (Exception ex)
+            {
+                Status = "Error : " + ex.Message;
+            } finally
+            {
+                IsBusy = false;
+                RaiseAll();
+            }
+        }
+        public async Task UpdateAsync()
+        {
 
         }
     }
